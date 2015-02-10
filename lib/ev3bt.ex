@@ -9,10 +9,11 @@ defmodule EV3BT do
   @one_byte_follows 0b001
   @two_bytes_follows 0b010
   @four_bytes_follows 0b011
-  @no_var_alloc << 0::16 >>
+  @no_var_alloc 0
   @dc_reply 0
   @dc_noreply 0x80
-  
+  @cmd_types %{:cmd_reply    => @dc_reply,
+               :cmd_no_reply => @dc_noreply}
   def outA(), do: 0b1
   def outB(), do: 0b10
   def outC(), do: 0b100
@@ -24,25 +25,19 @@ defmodule EV3BT do
 
   ## Examples
      
-      iex>  EV3BT.op_output_step_speed(0, [EV3BT.outA, EV3BT.outB], 50, 0, 900, 180, :true)   
+      iex>  EV3BT.op_output_step_speed(0, [EV3BT.outA, EV3BT.outB], 50, 0, 900, 180, :cmd_reply)   
       <<174, 0, 3, 129, 50, 0, 130, 132, 3, 130, 180, 0, 1>>
 
-      iex> EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC], 50, 0, 900, 180, :true) |> EV3BT.direct_command_encode(13, :false) |> Hexate.encode
-      "12000000000080AE000681320082840382B40001"
-
+      iex> EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC], 50, 0, 900, 180, :true) |> EV3BT.direct_command_encode(13, :cmd_no_reply) |> Hexate.encode
+      "12000d00800000ae000681320082840382b40001"
   """   
-  def direct_command_encode(commands, msg_counter, reply_required) do
-    type = if reply_required do
-             << @dc_reply::8 >>
-           else
-             << @dc_noreply::8 >>
-           end
-    payload = IO.iodata_to_binary [ << msg_counter::little-size(16) >>,
-                                    @no_var_alloc,
-                                    type,
-                                    commands ]
-    size = byte_size payload
-    << size::little-size(16) >> <> payload
+  def direct_command_encode(commands, msg_counter, cmd_type) do
+    cmd_size = byte_size commands
+    << cmd_size + 5         :: size(16)-little,
+       msg_counter          :: size(16)-little,
+       @cmd_types[cmd_type] :: size(8),
+       @no_var_alloc        :: size(16),
+       commands             :: binary >>
   end
   
     
@@ -97,6 +92,7 @@ defmodule EV3BT do
     {@pos, x}
   end
   
-  
+  def reply_type_convert(:true), do: @dc_reply
+  def reply_type_convert(:fales), do: @dc_noreply
   
 end
