@@ -28,7 +28,7 @@ defmodule EV3BT do
       <<174, 0, 3, 129, 50, 0, 130, 132, 3, 130, 180, 0, 1>>
 
       iex> EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC], 50, 0, 900, 180, :true) |> EV3BT.direct_command_encode(13, :false) |> Hexate.encode
-      "12000d00800000ae000681320082840382b40001"
+      "12000000000080AE000681320082840382B40001"
 
   """   
   def direct_command_encode(commands, msg_counter, reply_required) do
@@ -38,8 +38,8 @@ defmodule EV3BT do
              << @dc_noreply::8 >>
            end
     payload = IO.iodata_to_binary [ << msg_counter::little-size(16) >>,
-                                    type,
                                     @no_var_alloc,
+                                    type,
                                     commands ]
     size = byte_size payload
     << size::little-size(16) >> <> payload
