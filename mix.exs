@@ -25,7 +25,7 @@ defmodule EV3BT.Mixfile do
   #
   # Type `mix help deps` for more examples and options
   defp deps do
-    [{:bt, git: "https://github.com/tonyrog/bt.git"},
+    [{:serial, git: "https://github.com/jyzr/erlang-serial"},
      {:hexate,  ">= 0.5.0"}]
   end
 end

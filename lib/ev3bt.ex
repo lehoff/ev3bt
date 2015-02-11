@@ -1,98 +1,98 @@
 defmodule EV3BT do
+  use EV3BT.Constants
+  use EV3BT.ParameterEncoding
+  alias EV3BT.DirectCommand
 
-  @short_format 0
-  @long_format 1
-  @constant 0
-  @constant_value 0
-  @pos 0
-  @neg 1
-  @one_byte_follows 0b001
-  @two_bytes_follows 0b010
-  @four_bytes_follows 0b011
-  @no_var_alloc 0
-  @dc_reply 0
-  @dc_noreply 0x80
-  @cmd_types %{:cmd_reply    => @dc_reply,
-               :cmd_no_reply => @dc_noreply}
-  def outA(), do: 0b1
-  def outB(), do: 0b10
-  def outC(), do: 0b100
-  def outD(), do: 0b1000    
+  @layer_0 0x00 # Just means "this brick"
 
+  @outA 0b1
+  @outB 0b10
+  @outC 0b100
+  @outD 0b1000
 
-  @doc ~S"""  
-  Adds size, message counter and message type to a command or a bundled group of commands.
-
-  ## Examples
-     
-      iex>  EV3BT.op_output_step_speed(0, [EV3BT.outA, EV3BT.outB], 50, 0, 900, 180, :cmd_reply)   
-      <<174, 0, 3, 129, 50, 0, 130, 132, 3, 130, 180, 0, 1>>
-
-      iex> EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC], 50, 0, 900, 180, :true) |> EV3BT.direct_command_encode(13, :cmd_no_reply) |> Hexate.encode
-      "12000d00800000ae000681320082840382b40001"
-  """   
-  def direct_command_encode(commands, msg_counter, cmd_type) do
-    cmd_size = byte_size commands
-    << cmd_size + 5         :: size(16)-little,
-       msg_counter          :: size(16)-little,
-       @cmd_types[cmd_type] :: size(8),
-       @no_var_alloc        :: size(16),
-       commands             :: binary >>
+  def connect() do
+    pid = :serial.start(speed: 57600, open: "/dev/tty.EV3-SerialPort")
+    Agent.start(fn -> pid end, name: :serial_pid)
+    :ok
   end
-  
-    
+
+  def close() do
+    Agent.get(:serial_pid, fn x -> x end)
+    |> send({:close})
+    Agent.stop(:serial_pid)
+  end
+
+  def send_string(s) when is_binary(s) do
+    String.split(s)
+    |> Enum.map(fn x -> "0x" <> x end)
+    |> Enum.map(fn x -> Code.eval_string(x) |> elem(0) end)
+    |> :erlang.list_to_binary()
+    |> send_binary()
+  end
+
+  def send_binary(b) when is_binary(b) do
+    Agent.get(:serial_pid, fn x -> x end)
+    |> send({:send, b})
+  end
+
+  def play_sound() do
+    cmd = <<0x94, 0x01, 0x83, 0x32, 0x00, 0x00, 0x00, 0x83, 0xe8, 0x03,
+            0x00, 0x00, 0x83, 0xf4, 0x01, 0x00, 0x00>>
+    DirectCommand.encode(:cmd_no_reply, cmd)
+    |> send_binary()
+  end
+
+  def spin_motors() do
+    cmd = EV3BT.op_output_step_speed(@layer_0, [@outB, @outC],
+                                     50, 0, 900, 180, :brake)
+    DirectCommand.encode(:cmd_no_reply, cmd)
+    |> send_binary()
+  end
+
+  @mode_color 2
+  def read_color(port \\ 2) do
+    cmd = << ByteCodes.input_device     :: size(8),
+             lc(InputSubCodes.ready_si) :: binary,
+             lc(@layer_0)               :: binary,
+             lc(sensor_port(port))      :: binary,
+             lc(0x00)                   :: binary, # DONT_CHANGE_TYPE
+             lc(@mode_color)            :: binary,
+             lc(1)                      :: binary, # 1 data set,
+             0x60                       :: size(8) >> # GLOBAL_VAR_INDEX0
+    DirectCommand.encode(:cmd_reply, cmd, alloc_global: 4)
+    |> send_binary()
+  end
+
+  def sensor_port(p) do
+    p - 1
+  end
+
+  def outA(), do: @outA
+  def outB(), do: @outB
+  def outC(), do: @outC
+  def outD(), do: @outD
+
+  @doc """
+
+  ## Example
+
+  iex> EV3BT.send_binary(
+         EV3BT.DirectCommand.encode(
+           :cmd_no_reply,
+           EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC],
+                                      50, 0, 900, 180, :brake)))
+
+  """
   def op_output_step_speed(layer, motors, speed, step1, step2, step3, brake) do
-    nos = Enum.sum motors
-    brake_val = if brake do 1 else 0 end
-    << 0xaE >> <> enc_constants([layer,
-                                 nos,
-                                 speed,
-                                 step1, step2, step3,
-                                 brake_val])
+    nos = Enum.sum(motors) # Equivalent to 'bitwise or' in this case
+    brake_val = case brake do :brake -> 1; :no_brake -> 0 end
+    << ByteCodes.output_step_speed,
+       enc_constants([layer, nos, speed, step1, step2, step3, brake_val])
+         :: binary >>
   end
 
   def enc_constants(cs) do
-    IO.iodata_to_binary( for c <- cs, do: lc(c) )  
-  end
-  
-  
-  def lc(x) when abs(x) < 32, do: lc0(x)
-  def lc(x) when abs(x) < 128, do: lc1(x)
-  def lc(x) when abs(x) < 32768, do: lc2(x)    
-  def lc(x), do: lc4(x)
-  
-    
-  def lc0(x) do
-    {sign, v} = sign_value x
-    << @short_format::1, @constant::1, sign::1, v::5 >>
+     for c <- cs, into: <<>>, do: lc(c)
   end
 
-  
-  def lc1(x) do
-    << @long_format::1, @constant::1, @constant_value::1, 0::2,
-       @one_byte_follows::3, x::8 >>
-  end
-
-  def lc2(x) do
-    << @long_format::1, @constant::1, @constant_value::1, 0::2,
-    @two_bytes_follows::3, x::little-size(16) >>
-  end
-
-  def lc4(x) do
-    << @long_format::1, @constant::1, @constant_value::1, 0::2,
-    @four_bytes_follows::3, x::little-size(32) >>
-  end
-  
-
-  def sign_value(x) when x<0 do
-    {@neg, -x}
-  end
-
-  def sign_value x do
-    {@pos, x}
-  end
-  
-  def reply_type_convert(:true), do: @dc_reply
-  def reply_type_convert(:fales), do: @dc_noreply
-  
 end
