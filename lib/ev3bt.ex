@@ -4,12 +4,7 @@ defmodule EV3BT do
   alias EV3BT.DirectCommand
   alias EV3BT.DirectReply
 
-  @layer_0 0x00 # Just means "this brick"
-
-  @outA 0b1
-  @outB 0b10
-  @outC 0b100
-  @outD 0b1000
+  @layer_0 0 # Just means "this brick"
 
   def connect() do
     pid = :serial.start(speed: 57600, open: "/dev/tty.EV3-SerialPort")
@@ -61,8 +56,8 @@ defmodule EV3BT do
   end
 
   def spin_motors() do
-    cmd = EV3BT.op_output_step_speed(@layer_0, [@outB, @outC],
-                                     50, 0, 900, 180, :brake)
+    cmd = DirectCommand.Motors.output_step_speed(@layer_0, [:outB, :outC],
+                                                 50, 0, 900, 180, :brake)
     DirectCommand.encode(:cmd_no_reply, cmd)
     |> send_binary()
   end
@@ -86,34 +81,6 @@ defmodule EV3BT do
 
   def sensor_port(p) do
     p - 1
-  end
-
-  def outA(), do: @outA
-  def outB(), do: @outB
-  def outC(), do: @outC
-  def outD(), do: @outD
-
-  @doc """
-
-  ## Example
-
-      EV3BT.send_binary(
-        EV3BT.DirectCommand.encode(
-          :cmd_no_reply,
-          EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC],
-                                     50, 0, 900, 180, :brake)))
-
-  """
-  def op_output_step_speed(layer, motors, speed, step1, step2, step3, brake) do
-    nos = Enum.sum(motors) # Equivalent to 'bitwise or' in this case
-    brake_val = case brake do :brake -> 1; :no_brake -> 0 end
-    << ByteCodes.output_step_speed,
-       enc_constants([layer, nos, speed, step1, step2, step3, brake_val])
-         :: binary >>
-  end
-
-  def enc_constants(cs) do
-     for c <- cs, into: <<>>, do: lc(c)
   end
 
 end

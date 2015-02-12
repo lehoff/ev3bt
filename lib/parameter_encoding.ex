@@ -16,6 +16,8 @@ defmodule EV3BT.ParameterEncoding do
   @pos 0
   @neg 1
 
+  def lc(xs) when is_list(xs),    do: (for x <- xs, into: <<>>, do: lc(x))
+
   def lc(x) when abs(x) < 32,     do: lc0(x)
   def lc(x) when abs(x) < 128,    do: lc1(x)
   def lc(x) when abs(x) < 32768,  do: lc2(x)
