@@ -2,6 +2,7 @@ defmodule EV3BT do
   use EV3BT.Constants
   use EV3BT.ParameterEncoding
   alias EV3BT.DirectCommand
+  alias EV3BT.DirectReply
 
   @layer_0 0x00 # Just means "this brick"
 
@@ -35,6 +36,23 @@ defmodule EV3BT do
     |> send({:send, b})
   end
 
+  def receive_reply() do
+    receive do
+      {:data, reply} ->
+        DirectReply.decode(reply)
+    after
+      1000 -> "Nothing received"
+    end
+  end
+
+  def decode_data(<< 0, 0, value_byte,
+                     _    :: size(4),
+                     meta :: size(4)-signed >>) do
+    num_value_bits = 3 + meta * 2
+    << value :: size(num_value_bits), _ :: bitstring >> = << value_byte >>
+    value
+  end
+
   def play_sound() do
     cmd = <<0x94, 0x01, 0x83, 0x32, 0x00, 0x00, 0x00, 0x83, 0xe8, 0x03,
             0x00, 0x00, 0x83, 0xf4, 0x01, 0x00, 0x00>>
@@ -61,6 +79,9 @@ defmodule EV3BT do
              0x60                       :: size(8) >> # GLOBAL_VAR_INDEX0
     DirectCommand.encode(:cmd_reply, cmd, alloc_global: 4)
     |> send_binary()
+
+    %{reply_type: :direct_reply_ok, data: data} = receive_reply()
+    decode_data(data)
   end
 
   def sensor_port(p) do
@@ -76,11 +97,11 @@ defmodule EV3BT do
 
   ## Example
 
-  iex> EV3BT.send_binary(
-         EV3BT.DirectCommand.encode(
-           :cmd_no_reply,
-           EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC],
-                                      50, 0, 900, 180, :brake)))
+      EV3BT.send_binary(
+        EV3BT.DirectCommand.encode(
+          :cmd_no_reply,
+          EV3BT.op_output_step_speed(0, [EV3BT.outB, EV3BT.outC],
+                                     50, 0, 900, 180, :brake)))
 
   """
   def op_output_step_speed(layer, motors, speed, step1, step2, step3, brake) do
