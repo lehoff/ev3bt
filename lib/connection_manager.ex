@@ -111,7 +111,7 @@ defmodule EV3BT.ConnectionManager do
   end
 
   def do_direct_command(cmd_type, cmd, opts, pid, msg_id) do
-    Logger.debug("Sending command with ID #{msg_id}")
+    Logger.debug("Sending command with ID #{msg_id}: #{print_binary(cmd)}")
     DirectCommand.encode(cmd_type, cmd, [{:msg_counter, msg_id} | opts])
     |> do_send_command(pid)
   end
