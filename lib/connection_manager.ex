@@ -79,6 +79,7 @@ defmodule EV3BT.ConnectionManager do
   end
 
   def handle_info({:data, reply}, state) do
+    Logger.debug("Received reply: #{print_binary(reply)}")
     %{msg_counter: msg_id} = decoded_reply = DirectReply.decode(reply)
     case Map.get(state.clients_queue, msg_id) do
       nil ->
@@ -113,6 +114,10 @@ defmodule EV3BT.ConnectionManager do
     Logger.debug("Sending command with ID #{msg_id}")
     DirectCommand.encode(cmd_type, cmd, [{:msg_counter, msg_id} | opts])
     |> do_send_command(pid)
+  end
+
+  def print_binary(b) do
+    "<<" <> (:erlang.binary_to_list(b) |> Enum.join ", ") <> ">>"
   end
 
 end

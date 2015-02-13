@@ -21,6 +21,7 @@ defmodule EV3BT do
     |> CM.direct_command_no_reply()
   end
 
+  # This is just a rudimentary implementation of what I know so far
   def decode_data(<< 0, 0, value_byte,
                      _    :: size(4),
                      meta :: size(4)-signed >>) do
