@@ -78,6 +78,15 @@ defmodule EV3BT.ColorSensor do
     |> EV3BT.decode_data()
   end
 
+  def get_reflect_async(port) do
+    Sensor.input_read_si(@layer_0, port, @modes[:reflect])
+    |> CM.direct_command_async(alloc_global: 4)
+  end
+
+  def decode_async_reply_reflect(%{reply_type: :direct_reply_ok, data: data}) do
+    EV3BT.decode_data(data)
+  end
+
   #
   # Helper functions
   #
