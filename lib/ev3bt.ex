@@ -12,12 +12,13 @@ defmodule EV3BT do
     CM.stop()
   end
 
+  # Send a string which does not already contain a header
   def send_string(s) when is_binary(s) do
     String.split(s)
     |> Enum.map(fn x -> "0x" <> x end)
     |> Enum.map(fn x -> Code.eval_string(x) |> elem(0) end)
     |> :erlang.list_to_binary()
-    |> CM.send_command()
+    |> CM.direct_command_no_reply()
   end
 
   def decode_data(<< 0, 0, value_byte,
@@ -29,17 +30,15 @@ defmodule EV3BT do
   end
 
   def play_sound() do
-    cmd = <<0x94, 0x01, 0x83, 0x32, 0x00, 0x00, 0x00, 0x83, 0xe8, 0x03,
+    <<0x94, 0x01, 0x83, 0x32, 0x00, 0x00, 0x00, 0x83, 0xe8, 0x03,
             0x00, 0x00, 0x83, 0xf4, 0x01, 0x00, 0x00>>
-    DirectCommand.encode(:cmd_no_reply, cmd)
-    |> CM.send_command()
+    |> CM.direct_command_no_reply()
   end
 
   def spin_motors() do
-    cmd = DirectCommand.Motors.output_step_speed(@layer_0, [:outB, :outC],
-                                                 50, 0, 900, 180, :brake)
-    DirectCommand.encode(:cmd_no_reply, cmd)
-    |> CM.send_command()
+    DirectCommand.Motors.output_step_speed(@layer_0, [:outB, :outC],
+                                           50, 0, 900, 180, :brake)
+    |> CM.direct_command_no_reply()
   end
 
 end
