@@ -24,11 +24,9 @@ defmodule EV3BT.ParameterEncoding do
   def lc(x),                      do: lc4(x)
 
   def lc0(x) do
-    {sign, v} = sign_value x
     << @short_format         :: size(1),
        @constant             :: size(1),
-       sign                  :: size(1),
-       v                     :: size(5) >>
+       x                     :: size(6) >>
   end
 
   def lc1(x) do
@@ -56,18 +54,6 @@ defmodule EV3BT.ParameterEncoding do
        0                     :: size(2),
        FollowType.four_bytes :: size(3),
        x                     :: size(32)-little >>
-  end
-
-  #
-  # Helper functions
-  #
-
-  defp sign_value(x) when x<0 do
-    {@neg, -x}
-  end
-
-  defp sign_value(x) do
-    {@pos, x}
   end
 
 end
